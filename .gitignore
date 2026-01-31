@@ -1,0 +1,21 @@
+# Node / JavaScript / TypeScript
+node_modules/
+**/node_modules/
+.next/
+dist/
+build/
+coverage/
+.env
+*.log
+npm-debug.log*
+yarn-error.log*
+/.vercel/
+.vscode/
+.idea/
+.DS_Store
+
+# OS / editors
+Thumbs.db
+
+/**/dist/
+/**/build/

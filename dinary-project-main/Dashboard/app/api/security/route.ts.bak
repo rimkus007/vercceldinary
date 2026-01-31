@@ -1,0 +1,240 @@
+import { NextRequest } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { SecurityLog, Report, BlacklistEntry } from '@/types/security';
+
+// Fonction d'aide pour formater les logs
+function createAuditLog(
+  type: SecurityLog['type'],
+  severity: SecurityLog['severity'],
+  userId: string | undefined,
+  details: Record<string, any>,
+  req: NextRequest
+) {
+  return {
+    type,
+    severity,
+    userId,
+    ipAddress: req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for') || 'unknown',
+    userAgent: req.headers.get('user-agent') || 'unknown',
+    details,
+    timestamp: new Date().toISOString()
+  };
+}
+
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams;
+  const type = searchParams.get('type');
+  const period = searchParams.get('period') || '24h';
+
+  try {
+    let query;
+    
+    switch(type) {
+      case 'logs':
+        query = supabase.from('security_logs').select('*');
+        break;
+      case 'reports':
+        query = supabase.from('security_reports').select('*');
+        break;
+      case 'blacklist':
+        query = supabase.from('blacklist').select('*');
+        break;
+      default:
+        return new Response(JSON.stringify({ error: 'Invalid type' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    // Ajouter le filtre de période
+    if (period !== 'all') {
+      const now = new Date();
+      let timeAgo;
+      
+      switch(period) {
+        case '24h':
+          timeAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          timeAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          timeAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+      }
+
+      if (timeAgo) {
+        query = query.gte('created_at', timeAgo.toISOString());
+      }
+    }
+
+    // Ajouter tri par date
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify({ data }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error fetching security data:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { action, data } = body;
+
+    switch (action) {
+      case 'createReport':
+        const report = data as Report;
+        const { error: reportError } = await supabase
+          .from('security_reports')
+          .insert(report);
+        
+        if (reportError) throw reportError;
+
+        // Créer un log d'audit pour le rapport
+        await supabase.from('security_logs').insert(
+          createAuditLog(
+            'report',
+            report.priority === 'critical' ? 'critical' : 'warning',
+            report.reporterId,
+            { reportId: report.id, reportType: report.type },
+            req
+          )
+        );
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      case 'resolveReport':
+        const { reportId, resolution } = data;
+        const { error: resolveError } = await supabase
+          .from('security_reports')
+          .update({
+            status: 'resolved',
+            resolution
+          })
+          .eq('id', reportId);
+        
+        if (resolveError) throw resolveError;
+
+        // Créer un log d'audit pour la résolution
+        await supabase.from('security_logs').insert(
+          createAuditLog(
+            'report',
+            'info',
+            resolution.adminId,
+            { reportId, action: 'resolve', resolution },
+            req
+          )
+        );
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      case 'addToBlacklist':
+        const blacklistEntry = data as BlacklistEntry;
+        const { error: blacklistError } = await supabase
+          .from('blacklist')
+          .insert(blacklistEntry);
+        
+        if (blacklistError) throw blacklistError;
+
+        // Créer un log d'audit pour l'ajout à la liste noire
+        await supabase.from('security_logs').insert(
+          createAuditLog(
+            'modification',
+            'warning',
+            blacklistEntry.addedBy,
+            { action: 'blacklist', entry: blacklistEntry },
+            req
+          )
+        );
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      default:
+        return new Response(JSON.stringify({ error: 'Invalid action' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }
+  } catch (error) {
+    console.error('Error processing security action:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = req.nextUrl;
+    const type = searchParams.get('type');
+    const id = searchParams.get('id');
+
+    if (!type || !id) {
+      return new Response(JSON.stringify({ error: 'Missing type or id' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    let table;
+    switch(type) {
+      case 'blacklist':
+        table = 'blacklist';
+        break;
+      case 'report':
+        table = 'security_reports';
+        break;
+      default:
+        return new Response(JSON.stringify({ error: 'Invalid type' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Créer un log d'audit pour la suppression
+    await supabase.from('security_logs').insert(
+      createAuditLog(
+        'modification',
+        'warning',
+        undefined, // L'ID de l'admin devrait être fourni dans un vrai système
+        { action: 'delete', type, id },
+        req
+      )
+    );
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error('Error deleting security entry:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}

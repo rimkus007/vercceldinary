@@ -1,0 +1,20 @@
+🔐 NOUVELLE CLÉ DE CHIFFREMENT GÉNÉRÉE
+==========================================
+
+📋 COPIEZ CETTE LIGNE DANS VOTRE FICHIER .env:
+
+ENCRYPTION_KEY=922b33e6c88fd4769c56968f640a604994867965d04e30746e0b3c0a43adeec8
+
+⚠️  IMPORTANT: 
+- Gardez cette clé secrète et ne la partagez jamais!
+- Ne commitez JAMAIS le fichier .env dans Git
+- Longueur: 64 caractères ✓
+
+📝 INSTRUCTIONS:
+1. Ouvrez le fichier: dinarus-backend\.env
+2. Trouvez la ligne qui commence par ENCRYPTION_KEY=
+3. Remplacez-la par la ligne ci-dessus
+4. Sauvegardez le fichier
+5. Redémarrez le backend avec: npm run start:dev
+
+✅ Après ces étapes, l'approbation des vérifications fonctionnera correctement!

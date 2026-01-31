@@ -1,0 +1,512 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// DEFINITION DES ROLES POUR PLUS DE CLARTE
+enum Role {
+  USER
+  MERCHANT
+  ADMIN
+}
+
+enum RechargeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum MissionStatus {
+  ACTIVE
+  DRAFT
+}
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+// Ajoutez cette nouvelle énumération avec les autres
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// ✅ Cible (clients ou commerçants) pour règles/commissions
+enum AudienceRole {
+  USER
+  MERCHANT
+}
+
+// ✅ Actions requises pour valider un parrainage
+enum ReferralRequiredAction {
+  FIRST_TRANSACTION  // Première transaction envoyée
+  FIRST_RECHARGE     // Première recharge effectuée
+  FIRST_SALE         // Première vente réalisée (pour marchands)
+  ACCOUNT_CREATED    // Juste la création du compte
+}
+
+// Ajoutez ce nouveau modèle à la fin de votre fichier
+model IdentityVerification {
+  id                String             @id @default(uuid())
+  status            VerificationStatus @default(PENDING)
+  documentType      String // 'ID_CARD', 'PASSPORT', 'DRIVER_LICENSE'
+  frontImageUrl     String
+  backImageUrl      String?
+  selfieImageUrl    String?
+  selfieInstruction String?
+  taxNumber         String?            // Numéro d'impôt (pour les marchands uniquement)
+  rejectionReason   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id])
+  userId            String             @unique
+}
+
+// Archive sécurisée des données de vérification (chiffrée)
+model VerificationArchive {
+  id                String   @id @default(uuid())
+  userId            String
+  userFullName      String
+  userEmail         String
+  userPhone         String?
+  documentType      String
+  // Données sensibles chiffrées
+  encryptedData     String   @db.Text // Contient: numéro doc, date naissance, adresse, etc.
+  verifiedAt        DateTime @default(now())
+  verifiedBy        String   // ID de l'admin qui a vérifié
+  archivedAt        DateTime @default(now())
+  notes             String?  @db.Text
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([userEmail])
+  @@index([archivedAt])
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  fullName              String
+  username              String                 @unique
+  phoneNumber           String                 @unique
+  hashedPassword        String
+  pinHash               String?
+  avatarUrl             String?
+  dateOfBirth           DateTime?
+  address               String?
+  isVerified            Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  role                  Role                   @default(USER)
+  lastSeen              DateTime?
+  referralCode          String?                @unique
+  referredById          String?
+  referredBy            User?                  @relation("Referrals", fields: [referredById], references: [id])
+  referrals             User[]                 @relation("Referrals")
+  wallet                Wallet?
+  profile               UserProfile?
+  sentMoneyRequests     MoneyRequest[]         @relation("SentRequests")
+  receivedMoneyRequests MoneyRequest[]         @relation("ReceivedRequests")
+  merchantProfile       Merchant?
+  suggestions           MerchantSuggestion[]
+  notifications         Notification[]
+  sentRequests          Friendship[]           @relation("sentRequests")
+  receivedRequests      Friendship[]           @relation("receivedRequests")
+  identityVerification  IdentityVerification?
+  verificationArchives  VerificationArchive[]  // Archives de vérification
+  refreshTokens         RefreshToken[]         // Refresh tokens
+  twoFactorSecret       String?                // Secret pour 2FA
+  isTwoFactorEnabled    Boolean                @default(false)
+  backupCodes           String[]               // Codes de secours 2FA
+  withdrawalRequests    WithdrawalRequest[]
+  adminMessages         AdminMessage[]
+  supportTickets        SupportTicket[]        // Tickets de support créés par l'utilisateur
+
+  // ✅ Nouveau : statut persistant (utilisé par l'admin + JWT)
+  status                String                 @default("active")
+}
+
+model XpRule {
+  id          String       @id @default(cuid())
+  action      String       // 'recharge', 'transfer', 'payment', 'referral', etc.
+  xpValue     Int
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // ✅ Nouveau : règle d’XP applicable à USER ou MERCHANT
+  role        AudienceRole @default(USER)
+
+  @@unique([action, role])
+}
+
+model LevelRule {
+  id         String       @id @default(uuid()) // Changé pour uuid() compatible avec PostgreSQL
+  level      Int
+  name       String
+  xpRequired Int
+  icon       String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  // ✅ Nouveau : niveau applicable à USER ou MERCHANT
+  role       AudienceRole @default(USER)
+
+  @@unique([level, role])
+}
+
+model UserProfile {
+  id        String        @id @default(uuid())
+  level     Int           @default(1)
+  xp        Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id])
+  userId    String        @unique
+  missions  UserMission[]
+}
+
+model Wallet {
+  id                   String        @id @default(uuid())
+  balance              Float         @default(0)
+  currency             String        @default("DZD")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  user                 User          @relation(fields: [userId], references: [id])
+  userId               String        @unique
+  sentTransactions     Transaction[] @relation("SentTransactions")
+  receivedTransactions Transaction[] @relation("ReceivedTransactions")
+
+  rechargeRequests RechargeRequest[]
+}
+
+model Transaction {
+  id            String    @id @default(uuid())
+  amount        Float
+  type          String
+  description   String?
+  createdAt     DateTime  @default(now())
+  sender        Wallet?   @relation("SentTransactions", fields: [senderId], references: [id])
+  senderId      String?
+  receiver      Wallet    @relation("ReceivedTransactions", fields: [receiverId], references: [id])
+  receiverId    String
+  status        String    @default("completed") // "pending", "completed", "failed"
+  reference     String?   // Pour stocker le code de virement
+  xpGained      Int?
+  scheduledType String? // 'now', 'deferred', 'planned'
+  commission    Float?    // Commission prélevée sur la transaction
+  cart          Json?      // Pour stocker les détails du panier (produits, quantités, etc.)
+
+}
+
+model ScheduledTransfer {
+  id          String   @id @default(uuid())
+  senderId    String
+  receiverId  String
+  amount      Float
+  type        String   // 'deferred' or 'planned'
+  plannedDate DateTime?
+  status      String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RechargeRequest {
+  id              String   @id @default(cuid())
+  amount          Float
+  reference       String?
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason String?
+  proofUrl        String?  // URL de la preuve de paiement
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  receiver        Wallet   @relation(fields: [receiverId], references: [id])
+  receiverId      String
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Mission {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  xpReward    Int
+  goal        Int
+  type        String
+  icon        String        @default("🎯") // Emoji ou nom d'icône
+  status      MissionStatus @default(DRAFT)
+  role        AudienceRole  @default(USER)
+
+  // Relation avec la progression des utilisateurs
+  userMissions UserMission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([type, role])
+}
+
+model UserMission {
+  id            String      @id @default(uuid())
+  progress      Int         @default(0)
+  isCompleted   Boolean     @default(false)
+  completedAt   DateTime?
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id])
+  userProfileId String
+  mission       Mission     @relation(fields: [missionId], references: [id])
+  missionId     String
+
+  @@unique([userProfileId, missionId])
+}
+
+model MoneyRequest {
+  id          String   @id @default(uuid())
+  amount      Float
+  description String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  requester   User     @relation("SentRequests", fields: [requesterId], references: [id])
+  requesterId String
+  payer       User     @relation("ReceivedRequests", fields: [payerId], references: [id])
+  payerId     String
+}
+
+model Merchant {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  category     String
+  address      String?
+  isApproved   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  latitude     Float?
+  longitude    Float?
+  user         User      @relation(fields: [userId], references: [id])
+  userId       String    @unique
+  totalRevenue Float     @default(0)
+  status       String    @default("pending") // pending, active, inactive
+  products     Product[] // ligne pour lier les produits au commerçant
+  isSuggestion Boolean?   @default(false)
+  salesGoal         Float?    @default(10000) // Objectif de revenus (DA), 10000 par défaut
+  currentSales      Float?    @default(0)     // Suivi des ventes pour l'objectif actuel
+  goalStartDate     DateTime? @default(now()) // Date de début de la période de l'objectif actuel
+  goalPeriod        String?   @default("monthly") // Période ('monthly', 'weekly', etc.) - Commençons par monthly
+  claimedSuggestion   MerchantSuggestion? @relation("ClaimedSuggestion")
+  taxNumber          String?              // Numéro d'impôt du marchand
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  description String?
+  imageUrl    String?
+  category    String?  // <-- AJOUTE CETTE LIGNE
+  stock       Int?     @default(0)
+  emoji       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
+}
+
+model WithdrawalRequest {
+  id        String   @id @default(cuid())
+  amount    Float
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rejectionReason String?
+  bankDetails     Json?     // Pour stocker les détails du compte bancaire (RIB, etc.)
+}
+
+model MerchantSuggestion {
+  id            String   @id @default(uuid())
+  name          String
+  address       String?
+  latitude      Float? 
+  longitude     Float?
+  category      String?
+  contactName   String?
+  contactPhone  String?
+  notes         String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  suggestedBy   User     @relation(fields: [suggestedById], references: [id])
+  suggestedById String
+  suggestionCode String?  @unique
+  claimedByMerchantId String? @unique
+  claimedByMerchant   Merchant? @relation("ClaimedSuggestion", fields: [claimedByMerchantId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  emoji     String?  @default("🔔")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model Friendship {
+  id            String           @id @default(uuid())
+  requester     User             @relation("sentRequests", fields: [requesterId], references: [id])
+  requesterId   String
+  addressee     User             @relation("receivedRequests", fields: [addresseeId], references: [id])
+  addresseeId   String
+  status        FriendshipStatus
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([requesterId, addresseeId])
+}
+
+// CommissionRule: rules for commissions/fees (e.g. for sending money)
+model CommissionRule {
+  id          String       @id @default(uuid())
+  action      String       // e.g. 'send_money', 'recharge', etc.
+  type        String       // 'fixed' or 'percentage'
+  value       Float        // amount or percentage
+  minAmount   Float?       // optional minimum commission
+  maxAmount   Float?       // optional maximum commission
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // ✅ Nouveau : cible de la règle de commission
+  target      AudienceRole @default(USER)
+}
+
+// ✅ Règles de parrainage configurables
+model ReferralRule {
+  id             String                  @id @default(uuid())
+  
+  // Type du parrain (celui qui parraine)
+  referrerType   AudienceRole            // USER ou MERCHANT
+  
+  // Type du filleul (celui qui est parrainé)
+  refereeType    AudienceRole            // USER ou MERCHANT
+  
+  // Action requise pour que le parrainage soit considéré comme réussi
+  requiredAction ReferralRequiredAction  @default(FIRST_TRANSACTION)
+  
+  // Récompense pour le parrain
+  referrerReward Float                   @default(500)
+  
+  // Récompense pour le filleul (0 si aucune)
+  refereeReward  Float                   @default(0)
+  
+  // Règle active ou non
+  isActive       Boolean                 @default(true)
+  
+  // Description optionnelle
+  description    String?
+  
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  // ✅ Contrainte d'unicité : une seule règle par combinaison referrerType + refereeType
+  @@unique([referrerType, refereeType])
+}
+
+// ✅ Modèle pour les messages entre admin et utilisateurs
+model AdminMessage {
+  id           String         @id @default(uuid())
+  content      String
+  senderId     String         // "admin" ou userId
+  receiverId   String         // userId (pour messages admin->user) ou "admin" (pour messages user->admin)
+  userId       String         // L'utilisateur concerné par la conversation
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileUrl      String?        // URL du fichier attaché (optionnel)
+  fileName     String?        // Nom du fichier attaché
+  fileType     String?        // Type MIME du fichier
+  read         Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  // Relation avec les tickets de support
+  ticketId     String?        // ID du ticket si ce message est lié à un ticket
+  ticket       SupportTicket? @relation(fields: [ticketId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([ticketId])
+}
+
+// ✅ Tickets de support pour les utilisateurs et marchands
+enum TicketStatus {
+  OPEN       // Ouvert, en attente de réponse
+  IN_PROGRESS // En cours de traitement
+  RESOLVED    // Résolu
+  CLOSED      // Fermé
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  GENERAL     // Question générale
+  ACCOUNT     // Problème de compte
+  PAYMENT     // Problème de paiement
+  TECHNICAL   // Problème technique
+  INVENTORY   // Gestion d'inventaire (pour marchands)
+  OTHER       // Autre
+}
+
+model SupportTicket {
+  id          String          @id @default(uuid())
+  subject     String
+  category    TicketCategory  @default(GENERAL)
+  priority    TicketPriority  @default(NORMAL)
+  status      TicketStatus    @default(OPEN)
+  message     String          // Message initial du ticket
+  
+  userId      String          // L'utilisateur qui a créé le ticket
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  adminResponse String?       // Réponse de l'admin (optionnel)
+  resolvedAt    DateTime?     // Date de résolution
+  closedAt      DateTime?     // Date de fermeture
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Messages liés à ce ticket
+  messages    AdminMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}

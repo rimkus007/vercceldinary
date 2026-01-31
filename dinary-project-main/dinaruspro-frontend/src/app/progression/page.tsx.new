@@ -1,0 +1,136 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+
+export default function ProgressionPage() {
+  // Données utilisateur
+  const userData = {
+    name: 'Mon Commerce',
+    level: 12,
+    currentXP: 925,
+    totalPoints: 320,
+    daysActive: 63,
+    transactionsCount: 247,
+    clientsCount: 85,
+  };
+
+  // Calcul de la progression
+  const maxXP = 1000 + 200 * (userData.level - 1);
+  const progressPercent = Math.min(100, Math.round((userData.currentXP / maxXP) * 100));
+
+  // Missions
+  const missions = [
+    { title: 'Effectuer 3 ventes', done: false },
+    { title: 'Ajouter un client', done: true },
+    { title: 'Consulter le rapport', done: false },
+  ];
+
+  return (
+    <main className="p-4 pb-20 bg-gray-50 min-h-screen">
+      <header className="flex justify-between items-center mb-6">
+        <Link href="/" className="text-blue-600">← Retour</Link>
+        <h1 className="text-xl font-bold text-center">Progression</h1>
+        <div className="w-6"></div>
+      </header>
+
+      {/* Profil simplifié */}
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <div className="flex items-center gap-4 mb-3">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-2xl">
+            🧑‍💼
+          </div>
+          <div>
+            <h2 className="font-bold">{userData.name}</h2>
+            <p className="text-sm text-gray-500">Niveau {userData.level}</p>
+          </div>
+        </div>
+        
+        {/* Barre de progression */}
+        <div className="mb-2">
+          <div className="flex justify-between text-sm mb-1">
+            <span>XP: {userData.currentXP}/{maxXP}</span>
+            <span>{progressPercent}%</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded-full">
+            <div 
+              className="h-2 bg-blue-500 rounded-full" 
+              style={{width: `${progressPercent}%`}}
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Statistiques */}
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <h2 className="font-bold mb-3">Statistiques</h2>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="p-2">
+            <p className="text-lg font-bold">{userData.daysActive}</p>
+            <p className="text-xs text-gray-500">Jours actifs</p>
+          </div>
+          <div className="p-2">
+            <p className="text-lg font-bold">{userData.transactionsCount}</p>
+            <p className="text-xs text-gray-500">Transactions</p>
+          </div>
+          <div className="p-2">
+            <p className="text-lg font-bold">{userData.clientsCount}</p>
+            <p className="text-xs text-gray-500">Clients</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Missions */}
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <h2 className="font-bold mb-3">Missions du jour</h2>
+        <ul className="space-y-2">
+          {missions.map((mission, index) => (
+            <li key={index} className="flex items-center justify-between">
+              <span>
+                {mission.done ? '✅' : '◻️'} {mission.title}
+              </span>
+              <span className={mission.done ? 'text-green-600' : 'text-gray-400'}>
+                {mission.done ? 'Fait' : 'À faire'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Points */}
+      <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+        <h2 className="font-bold mb-3">Points et récompenses</h2>
+        <p className="text-center">
+          <span className="text-2xl font-bold block">{userData.totalPoints}</span>
+          <span className="text-sm text-gray-500">Points totaux</span>
+        </p>
+        <div className="mt-4">
+          <Link 
+            href="/rewards" 
+            className="block w-full p-2 bg-blue-500 text-white text-center rounded-md"
+          >
+            Voir mes récompenses
+          </Link>
+        </div>
+      </div>
+
+      {/* Navigation simplifiée */}
+      <footer className="fixed bottom-0 left-0 w-full bg-white border-t py-3 px-4">
+        <div className="flex justify-around">
+          <Link href="/" className="text-gray-500 text-center">
+            <span className="block text-xl">🏠</span>
+            <span className="text-xs">Accueil</span>
+          </Link>
+          <Link href="/boutique" className="text-gray-500 text-center">
+            <span className="block text-xl">🛍️</span>
+            <span className="text-xs">Boutique</span>
+          </Link>
+          <Link href="/rewards" className="text-gray-500 text-center">
+            <span className="block text-xl">🎁</span>
+            <span className="text-xs">Récompenses</span>
+          </Link>
+        </div>
+      </footer>
+    </main>
+  );
+}

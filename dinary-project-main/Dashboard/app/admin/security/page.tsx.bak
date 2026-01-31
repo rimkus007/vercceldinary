@@ -1,0 +1,471 @@
+'use client'
+
+import { useState, useEffect } from 'react';
+import {
+  Shield, AlertTriangle, UserX, History,
+  Filter, Search, DownloadCloud, RefreshCw
+} from 'lucide-react';
+import { SecurityLog, Report, BlacklistEntry } from '@/types/security';
+import { 
+  fetchSecurityLogs, 
+  fetchSecurityReports, 
+  fetchBlacklist,
+  resolveReport,
+  addToBlacklist,
+  removeFromBlacklist,
+  deleteReport
+} from '@/lib/securityService';
+
+// Composants locaux
+interface TabProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  count?: number;
+}
+
+const Tab: React.FC<TabProps> = ({ active, onClick, icon, label, count }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+      ${active 
+        ? 'bg-primary-600 text-white' 
+        : 'text-gray-600 hover:bg-gray-100'
+      }`}
+  >
+    {icon}
+    {label}
+    {count !== undefined && (
+      <span className={`px-2 py-0.5 rounded-full text-xs
+        ${active ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+        {count}
+      </span>
+    )}
+  </button>
+);
+
+export default function SecurityPage() {
+  const [activeTab, setActiveTab] = useState<'logs' | 'reports' | 'blacklist'>('logs');
+  const [logs, setLogs] = useState<SecurityLog[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [blacklist, setBlacklist] = useState<BlacklistEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterOptions, setFilterOptions] = useState({
+    severity: 'all',
+    type: 'all',
+    dateRange: '24h'
+  });
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [isBlacklistModalOpen, setIsBlacklistModalOpen] = useState(false);
+  const [selectedBlacklistEntry, setSelectedBlacklistEntry] = useState<BlacklistEntry | null>(null);
+
+  useEffect(() => {
+    fetchSecurityData();
+  }, [activeTab, filterOptions.dateRange]);
+
+  const fetchSecurityData = async () => {
+    setIsLoading(true);
+    try {
+      switch (activeTab) {
+        case 'logs':
+          const newLogs = await fetchSecurityLogs(filterOptions.dateRange);
+          setLogs(newLogs);
+          break;
+        case 'reports':
+          const newReports = await fetchSecurityReports(filterOptions.dateRange);
+          setReports(newReports);
+          break;
+        case 'blacklist':
+          const newBlacklist = await fetchBlacklist();
+          setBlacklist(newBlacklist);
+          break;
+      }
+    } catch (error) {
+      console.error('Error fetching security data:', error);
+      alert('Erreur lors de la récupération des données de sécurité.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchSecurityData();
+  };
+
+  const handleExport = () => {
+    // TODO: Implémenter l'export des données
+    console.log('Exporting data...');
+  };
+
+  const handleReportClick = (report: Report) => {
+    setSelectedReport(report);
+  };
+
+  const handleResolveReport = async (
+    reportId: string,
+    resolution: { action: 'blocked' | 'warning' | 'none'; note: string }
+  ) => {
+    try {
+      await resolveReport(reportId, {
+        ...resolution,
+        adminId: 'admin123', // À remplacer par l'ID de l'admin connecté
+        timestamp: new Date().toISOString()
+      });
+      fetchSecurityData();
+    } catch (error) {
+      console.error('Error resolving report:', error);
+      alert('Erreur lors de la résolution du rapport.');
+    }
+  };
+
+  const handleAddToBlacklist = () => {
+    setSelectedBlacklistEntry(null);
+    setIsBlacklistModalOpen(true);
+  };
+
+  const handleEditBlacklistEntry = (entry: BlacklistEntry) => {
+    setSelectedBlacklistEntry(entry);
+    setIsBlacklistModalOpen(true);
+  };
+
+  const handleSaveBlacklistEntry = async (entry: Omit<BlacklistEntry, 'id'>) => {
+    try {
+      if (selectedBlacklistEntry) {
+        // TODO: Implémenter la modification d'une entrée existante
+      } else {
+        await addToBlacklist(entry);
+      }
+      fetchSecurityData();
+    } catch (error) {
+      console.error('Error saving blacklist entry:', error);
+      alert('Erreur lors de l\'enregistrement de l\'entrée.');
+    }
+  };
+
+  const handleRemoveFromBlacklist = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette entrée ?')) {
+      return;
+    }
+    
+    try {
+      await removeFromBlacklist(id);
+      fetchSecurityData();
+    } catch (error) {
+      console.error('Error removing blacklist entry:', error);
+      alert('Erreur lors de la suppression de l\'entrée.');
+    }
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+        </div>
+      );
+    }
+
+    switch (activeTab) {
+      case 'logs':
+        return (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Timestamp
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Severity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    IP Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Details
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {log.type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${log.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                          log.severity === 'error' ? 'bg-orange-100 text-orange-800' :
+                          log.severity === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'}`}>
+                        {log.severity}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {log.userId || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {log.ipAddress}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {JSON.stringify(log.details)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+
+      case 'reports':
+        return (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Target
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {reports.map((report) => (
+                  <tr key={report.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(report.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {report.type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          report.status === 'investigating' ? 'bg-blue-100 text-blue-800' :
+                          report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                        {report.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${report.priority === 'critical' ? 'bg-red-100 text-red-800' :
+                          report.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                          report.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'}`}>
+                        {report.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {`${report.targetType}: ${report.targetId}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {report.description}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">                      <button 
+                        onClick={() => handleReportClick(report)}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+
+      case 'blacklist':
+        return (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Added
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Value
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Added By
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expires
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {blacklist.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(entry.addedAt).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {entry.type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {entry.value}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {entry.reason}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {entry.addedBy}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {entry.expiresAt ? new Date(entry.expiresAt).toLocaleString() : 'Never'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">                      <button 
+                        onClick={() => handleRemoveFromBlacklist(entry.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Sécurité</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Gérez la sécurité de la plateforme et surveillez les activités suspectes
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            className={`p-2 text-gray-500 rounded-lg hover:bg-gray-100 transition-colors
+              ${isLoading ? 'animate-spin' : ''}`}
+            disabled={isLoading}
+          >
+            <RefreshCw size={20} />
+          </button>
+          <button
+            onClick={handleExport}
+            className="p-2 text-gray-500 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <DownloadCloud size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+        </div>
+        <div className="flex gap-2">
+          <select
+            value={filterOptions.severity}
+            onChange={(e) => setFilterOptions({...filterOptions, severity: e.target.value})}
+            className="px-3 py-2 bg-white border rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="all">Toutes les sévérités</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="critical">Critical</option>
+          </select>
+          <select
+            value={filterOptions.dateRange}
+            onChange={(e) => setFilterOptions({...filterOptions, dateRange: e.target.value})}
+            className="px-3 py-2 bg-white border rounded-lg text-sm text-gray-600 focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="24h">Dernières 24h</option>
+            <option value="7d">7 derniers jours</option>
+            <option value="30d">30 derniers jours</option>
+            <option value="all">Tout</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2">
+        <Tab
+          active={activeTab === 'logs'}
+          onClick={() => setActiveTab('logs')}
+          icon={<History size={16} />}
+          label="Logs de Sécurité"
+          count={logs.length}
+        />
+        <Tab
+          active={activeTab === 'reports'}
+          onClick={() => setActiveTab('reports')}
+          icon={<AlertTriangle size={16} />}
+          label="Rapports"
+          count={reports.length}
+        />
+        <Tab
+          active={activeTab === 'blacklist'}
+          onClick={() => setActiveTab('blacklist')}
+          icon={<UserX size={16} />}
+          label="Liste Noire"
+          count={blacklist.length}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6">
+          {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "public"."Merchant" ADD COLUMN     "currentSales" DOUBLE PRECISION DEFAULT 0,
+ADD COLUMN     "goalPeriod" TEXT DEFAULT 'monthly',
+ADD COLUMN     "goalStartDate" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "salesGoal" DOUBLE PRECISION DEFAULT 10000;

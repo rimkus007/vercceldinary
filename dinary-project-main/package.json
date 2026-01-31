@@ -1,0 +1,14 @@
+{
+  "name": "votre-projet-dinary",
+  "version": "1.0.0",
+  "scripts": {
+    "dev:all": "concurrently --kill-others \"npm run dev:client\" \"npm run dev:backend\" \"npm run dev:dashboard\" \"npm run dev:seller\"",
+    "dev:client": "cd dinarus && npm run dev -- --port 3000",
+    "dev:backend": "cd dinarus-backend && npm run start:dev",
+    "dev:dashboard": "cd dashboard && npm run dev -- --port 3002",
+    "dev:seller": "cd dinaruspro-frontend && npm run dev -- --port 3003"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

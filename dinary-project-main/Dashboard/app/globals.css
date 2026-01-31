@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 245, 247, 250;
+  --background-end-rgb: 255, 255, 255;
+  
+  /* UI Component CSS Variables */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 187 71% 56%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 187 71% 56%;
+  --radius: 0.5rem;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer components {
+  .sidebar-icon {
+    @apply relative flex items-center justify-center h-12 w-12 mt-2 mb-2 mx-auto 
+    bg-white hover:bg-dinary-turquoise dark:bg-gray-800 
+    text-dinary-turquoise hover:text-white
+    hover:rounded-xl rounded-3xl
+    transition-all duration-300 ease-linear
+    cursor-pointer shadow-md;
+  }
+
+  .sidebar-tooltip {
+    @apply absolute w-auto p-2 m-2 min-w-max left-14
+    rounded-md shadow-md
+    text-white bg-gray-900 
+    text-xs font-bold
+    transition-all duration-100 scale-0 origin-left;
+  }
+
+  .admin-card {
+    @apply relative overflow-hidden rounded-lg p-5 shadow-md hover:shadow-lg transition-shadow 
+    duration-300 bg-white border border-gray-100;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 bg-dinary-turquoise hover:bg-dinary-turquoise/90 focus:ring-2 
+    focus:ring-offset-2 focus:ring-dinary-turquoise text-white font-medium rounded-lg 
+    shadow-sm transition duration-150 ease-in-out focus:outline-none;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-2
+    focus:ring-offset-2 focus:ring-dinary-turquoise text-gray-700 font-medium rounded-lg 
+    shadow-sm transition duration-150 ease-in-out focus:outline-none;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 hover:bg-red-700 focus:ring-2 
+    focus:ring-offset-2 focus:ring-red-500 text-white font-medium rounded-lg 
+    shadow-sm transition duration-150 ease-in-out focus:outline-none;
+  }
+  
+  .input-primary {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-dinary-turquoise 
+    focus:ring-1 focus:ring-dinary-turquoise focus:outline-none transition duration-200;
+  }
+  
+  .select-primary {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-dinary-turquoise
+    focus:ring-1 focus:ring-dinary-turquoise focus:outline-none transition duration-200
+    appearance-none bg-white;
+  }
+  
+  /* Animation pour les notifications */
+  .notification-pulse {
+    @apply animate-pulse;
+  }
+  
+  /* Hover effects pour les cards */
+  .hover-scale {
+    @apply transition-transform duration-300 hover:scale-[1.02];
+  }
+  
+  /* Data table styles */
+  .data-table {
+    @apply min-w-full divide-y divide-gray-200;
+  }
+  
+  .data-table th {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+  }
+  
+  .data-table td {
+    @apply px-6 py-4 whitespace-nowrap text-sm;
+  }
+  
+  .data-table tr {
+    @apply hover:bg-gray-50;
+  }
+  
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+}

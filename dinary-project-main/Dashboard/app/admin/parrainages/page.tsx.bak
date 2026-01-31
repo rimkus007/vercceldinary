@@ -1,0 +1,588 @@
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Users, 
+  UserPlus, 
+  TrendingUp, 
+  Gift,
+  Search,
+  Filter,
+  Download,
+  Eye
+} from 'lucide-react';
+  conversionType: 'registration' | 'first_transaction' | 'first_month';
+}
+
+interface ReferralStats {
+  totalReferrals: number;
+  pendingReferrals: number;
+  completedReferrals: number;
+  totalRewards: number;
+  conversionRate: number;
+  topReferrers: Array<{
+    userId: string;
+    name: string;
+    referralCount: number;
+    totalEarned: number;
+  }>;
+}
+
+export default function ParrainagesPage() {
+  const [referrals, setReferrals] = useState<ReferralData[]>([]);
+  const [stats, setStats] = useState<ReferralStats | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [selectedReferral, setSelectedReferral] = useState<ReferralData | null>(null);
+  const [showRewardModal, setShowRewardModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Données de test
+  useEffect(() => {
+    setTimeout(() => {
+      const mockReferrals: ReferralData[] = [
+        {
+          id: 'ref_001',
+          referrerId: 'usr_001',
+          referrerName: 'Ahmed Benali',
+          referrerEmail: 'ahmed.benali@email.com',
+          refereeId: 'usr_101',
+          refereeName: 'Fatima Khadra',
+          refereeEmail: 'fatima.khadra@email.com',
+          status: 'completed',
+          referralCode: 'AHMED2024',
+          dateCreated: '2024-12-01',
+          dateCompleted: '2024-12-03',
+          rewardAmount: 500,
+          conversionType: 'first_transaction'
+        },
+        {
+          id: 'ref_002',
+          referrerId: 'usr_002',
+          referrerName: 'Yacine Mammeri',
+          referrerEmail: 'yacine.mammeri@email.com',
+          refereeId: 'usr_102',
+          refereeName: 'Amina Bouzid',
+          refereeEmail: 'amina.bouzid@email.com',
+          status: 'rewarded',
+          referralCode: 'YACINE2024',
+          dateCreated: '2024-11-28',
+          dateCompleted: '2024-11-30',
+          rewardAmount: 500,
+          bonusReward: 100,
+          conversionType: 'first_month'
+        },
+        {
+          id: 'ref_003',
+          referrerId: 'usr_003',
+          referrerName: 'Karim Djebbar',
+          referrerEmail: 'karim.djebbar@email.com',
+          refereeId: 'usr_103',
+          refereeName: 'Selma Hamidi',
+          refereeEmail: 'selma.hamidi@email.com',
+          status: 'pending',
+          referralCode: 'KARIM2024',
+          dateCreated: '2024-12-15',
+          rewardAmount: 500,
+          conversionType: 'registration'
+        },
+        {
+          id: 'ref_004',
+          referrerId: 'usr_001',
+          referrerName: 'Ahmed Benali',
+          referrerEmail: 'ahmed.benali@email.com',
+          refereeId: 'usr_104',
+          refereeName: 'Mehdi Benaissa',
+          refereeEmail: 'mehdi.benaissa@email.com',
+          status: 'completed',
+          referralCode: 'AHMED2024',
+          dateCreated: '2024-12-10',
+          dateCompleted: '2024-12-12',
+          rewardAmount: 500,
+          conversionType: 'first_transaction'
+        },
+        {
+          id: 'ref_005',
+          referrerId: 'usr_004',
+          referrerName: 'Nadia Cherif',
+          referrerEmail: 'nadia.cherif@email.com',
+          refereeId: 'usr_105',
+          refereeName: 'Rachid Boudjema',
+          refereeEmail: 'rachid.boudjema@email.com',
+          status: 'cancelled',
+          referralCode: 'NADIA2024',
+          dateCreated: '2024-12-08',
+          rewardAmount: 500,
+          conversionType: 'registration'
+        }
+      ];
+
+      const mockStats: ReferralStats = {
+        totalReferrals: 125,
+        pendingReferrals: 23,
+        completedReferrals: 89,
+        totalRewards: 55000,
+        conversionRate: 78.5,
+        topReferrers: [
+          { userId: 'usr_001', name: 'Ahmed Benali', referralCount: 12, totalEarned: 7500 },
+          { userId: 'usr_002', name: 'Yacine Mammeri', referralCount: 8, totalEarned: 5200 },
+          { userId: 'usr_006', name: 'Salim Benabbes', referralCount: 6, totalEarned: 3800 },
+          { userId: 'usr_007', name: 'Leila Meziane', referralCount: 5, totalEarned: 3000 }
+        ]
+      };
+
+      setReferrals(mockReferrals);
+      setStats(mockStats);
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  // Filtrage des parrainages
+  const filteredReferrals = referrals.filter(referral => {
+    const matchesSearch = 
+      referral.referrerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      referral.refereeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      referral.referralCode.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || referral.status === statusFilter;
+    
+    const matchesDate = dateFilter === 'all' || 
+      (dateFilter === 'week' && new Date(referral.dateCreated) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
+      (dateFilter === 'month' && new Date(referral.dateCreated) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+    
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'rewarded': return 'bg-blue-100 text-blue-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="w-4 h-4" />;
+      case 'rewarded': return <Award className="w-4 h-4" />;
+      case 'pending': return <Clock className="w-4 h-4" />;
+      case 'cancelled': return <XCircle className="w-4 h-4" />;
+      default: return null;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-dinary-turquoise"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Gestion des Parrainages</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Suivi des programmes de parrainage et récompenses
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Exporter
+          </Button>
+          <Button className="flex items-center gap-2 bg-dinary-turquoise hover:bg-dinary-turquoise/90">
+            <UserPlus className="w-4 h-4" />
+            Nouveau Programme
+          </Button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Parrainages</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalReferrals}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">+12% ce mois</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">En Attente</p>
+                  <p className="text-2xl font-bold text-yellow-600">{stats.pendingReferrals}</p>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">À traiter</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Complétés</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.completedReferrals}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Réussis</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Taux Conversion</p>
+                  <p className="text-2xl font-bold text-dinary-turquoise">{stats.conversionRate}%</p>
+                </div>
+                <Target className="w-8 h-8 text-dinary-turquoise" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">+5.2% vs mois dernier</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Récompenses Totales</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.totalRewards.toLocaleString()} DA</p>
+                </div>
+                <Gift className="w-8 h-8 text-green-600" />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Distribuées</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Top Referrers */}
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5" />
+              Top Parrains
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats.topReferrers.map((referrer, index) => (
+                <div key={referrer.userId} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                      index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-500' : 'bg-blue-500'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{referrer.name}</p>
+                      <p className="text-sm text-gray-500">{referrer.referralCount} parrainages</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-green-600">{referrer.totalEarned.toLocaleString()} DA</p>
+                    <p className="text-xs text-gray-500">Gains totaux</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par nom, email ou code..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dinary-turquoise focus:border-dinary-turquoise"
+                />
+              </div>
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dinary-turquoise"
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="pending">En attente</option>
+              <option value="completed">Complétés</option>
+              <option value="rewarded">Récompensés</option>
+              <option value="cancelled">Annulés</option>
+            </select>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-dinary-turquoise"
+            >
+              <option value="all">Toutes les dates</option>
+              <option value="week">Cette semaine</option>
+              <option value="month">Ce mois</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Referrals Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Liste des Parrainages</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Parrain</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Filleul</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Code</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Statut</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Récompense</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredReferrals.map((referral) => (
+                  <tr key={referral.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium text-gray-900">{referral.referrerName}</p>
+                        <p className="text-sm text-gray-500">{referral.referrerEmail}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium text-gray-900">{referral.refereeName}</p>
+                        <p className="text-sm text-gray-500">{referral.refereeEmail}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant="outline" className="font-mono">
+                        {referral.referralCode}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge className={`${getStatusColor(referral.status)} flex items-center gap-1 w-fit`}>
+                        {getStatusIcon(referral.status)}
+                        {referral.status === 'pending' ? 'En attente' :
+                         referral.status === 'completed' ? 'Complété' :
+                         referral.status === 'rewarded' ? 'Récompensé' : 'Annulé'}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="text-sm text-gray-900">{new Date(referral.dateCreated).toLocaleDateString('fr-FR')}</p>
+                        {referral.dateCompleted && (
+                          <p className="text-xs text-gray-500">
+                            Complété: {new Date(referral.dateCompleted).toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-semibold text-green-600">{referral.rewardAmount} DA</p>
+                        {referral.bonusReward && (
+                          <p className="text-xs text-blue-600">+{referral.bonusReward} DA bonus</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedReferral(referral)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Voir
+                        </Button>
+                        {referral.status === 'completed' && (
+                          <Button
+                            size="sm"
+                            onClick={() => setShowRewardModal(true)}
+                            className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <Gift className="w-4 h-4" />
+                            Récompenser
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredReferrals.length === 0 && (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Aucun parrainage trouvé</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Referral Detail Modal */}
+      {selectedReferral && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">Détails du Parrainage</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedReferral(null)}
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Informations Parrain</h4>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Nom:</span> {selectedReferral.referrerName}</p>
+                    <p><span className="font-medium">Email:</span> {selectedReferral.referrerEmail}</p>
+                    <p><span className="font-medium">Code:</span> {selectedReferral.referralCode}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Informations Filleul</h4>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Nom:</span> {selectedReferral.refereeName}</p>
+                    <p><span className="font-medium">Email:</span> {selectedReferral.refereeEmail}</p>
+                    <p><span className="font-medium">Type:</span> {selectedReferral.conversionType}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Détails de la Récompense</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Statut</p>
+                    <Badge className={`${getStatusColor(selectedReferral.status)} mt-1`}>
+                      {selectedReferral.status === 'pending' ? 'En attente' :
+                       selectedReferral.status === 'completed' ? 'Complété' :
+                       selectedReferral.status === 'rewarded' ? 'Récompensé' : 'Annulé'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Récompense de base</p>
+                    <p className="font-semibold text-green-600">{selectedReferral.rewardAmount} DA</p>
+                  </div>
+                  {selectedReferral.bonusReward && (
+                    <div>
+                      <p className="text-sm text-gray-600">Bonus</p>
+                      <p className="font-semibold text-blue-600">{selectedReferral.bonusReward} DA</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setSelectedReferral(null)}>
+                Fermer
+              </Button>
+              {selectedReferral.status === 'completed' && (
+                <Button className="bg-green-600 hover:bg-green-700">
+                  Traiter Récompense
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reward Modal */}
+      {showRewardModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold">Traiter Récompense</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRewardModal(false)}
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-gray-600">
+                Voulez-vous traiter la récompense de parrainage pour ce utilisateur ?
+              </p>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span>Récompense de base:</span>
+                  <span className="font-semibold">500 DA</span>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span>Bonus fidélité:</span>
+                  <span className="font-semibold text-blue-600">100 DA</span>
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                  <span className="font-semibold">Total:</span>
+                  <span className="font-semibold text-green-600">600 DA</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <Button variant="outline" onClick={() => setShowRewardModal(false)}>
+                Annuler
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  setShowRewardModal(false);
+                  // Logique pour traiter la récompense
+                }}
+              >
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

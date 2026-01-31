@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  /* Variables pour des interactions tactiles optimisées */
+  --touch-target-size: 44px; /* Taille minimale recommandée pour les zones tactiles */
+  --touch-spacing: 8px;      /* Espacement minimal entre les éléments interactifs */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Commenté pour éviter les problèmes de lisibilité sur mobile
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+*/
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-tap-highlight-color: transparent; /* Supprime le flash de sélection sur iOS */
+  touch-action: manipulation; /* Optimise la réactivité tactile */
+}
+
+/* Force les couleurs de texte pour assurer la lisibilité sur tous les appareils */
+.text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.text-gray-400 {
+  color: #9ca3af !important;
+}
+
+/* Optimisations tactiles */
+button, 
+a, 
+[role="button"] {
+  cursor: pointer;
+  min-height: var(--touch-target-size);
+  min-width: var(--touch-target-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+* {
+  -webkit-touch-callout: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Adaptations spécifiques pour écrans de petite taille */
+@media (max-width: 640px) {
+  .text-sm {
+    font-size: 0.875rem !important;
+  }
+  
+  .text-xs {
+    font-size: 0.75rem !important;
+  }
+  
+  /* Plus d'espace autour des éléments cliquables sur mobile */
+  .p-4 {
+    padding: 1.25rem;
+  }
+}
+
+/* Animations utilisées dans l'application */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
